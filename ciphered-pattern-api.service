@@ -1,0 +1,15 @@
+[Unit]
+Description=Ciphered Pattern API Service
+After=network.target
+
+[Service]
+WorkingDirectory=/home/sahil/ciphered-pattern-api
+Environment="PATH=/home/sahil/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PORT=39778"
+Environment="PATTERNS_FILE=source/patterns.txt"
+ExecStart=/home/sahil/.local/bin/uv run python main.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
