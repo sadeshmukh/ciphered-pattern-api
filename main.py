@@ -89,6 +89,28 @@ def validate_pattern(pattern: str) -> bool:
     
     return True
 
+def matches_partial(word: str, partial: str) -> bool:
+    if len(word) != len(partial):
+        return False
+    
+    for i in range(len(word)):
+        if partial[i] != '_' and word[i] != partial[i]:
+            return False
+    
+    return True
+
+def validate_partial_word(partial: str) -> bool:
+    if not partial or len(partial) > 20:
+        return False
+    
+    if not all(c.isalpha() or c == '_' for c in partial):
+        return False
+    
+    if all(c == '_' for c in partial):
+        return False
+    
+    return True
+
 @app.get("/", tags=["Root"])
 async def root():
     """
@@ -160,6 +182,84 @@ async def pattern(pattern: str):
         return {"message": patterns[pattern]}
     else:
         raise HTTPException(status_code=404, detail="Pattern not found")
+
+@app.get("/predict/{partial_word}",
+         response_model=PatternResponse,
+         tags=["Patterns"],
+         summary="Predict words from partial pattern",
+         description="Returns words that match a partial pattern with underscores as wildcards.\n\n"
+                    "Rules:\n"
+                    "- Use underscores (_) for unknown letters\n"
+                    "- Must contain at least one known letter\n"
+                    "- Must be 20 characters or less\n"
+                    "Examples:\n"
+                    "- H_LL_ matches HELLO, HALLS, HILLS, etc.\n"
+                    "- C_T matches CAT, COT, CUT, etc.",
+         responses={
+             200: {
+                 "description": "Successfully found matching words",
+                 "content": {
+                     "application/json": {
+                         "example": {"message": ["HELLO", "HALLS", "HILLS"]}
+                     }
+                 }
+             },
+             400: {
+                 "description": "Invalid partial word format",
+                 "model": PatternError,
+                 "content": {
+                     "application/json": {
+                         "example": {"detail": "Invalid partial word format. Must contain letters and underscores only, with at least one letter."}
+                     }
+                 }
+             },
+             404: {
+                 "description": "No matching words found",
+                 "model": PatternError,
+                 "content": {
+                     "application/json": {
+                         "example": {"detail": "No words found matching the partial pattern"}
+                     }
+                 }
+             }
+         })
+@cache(expire=300)
+async def predict_partial(partial_word: str):
+    """
+    Predict words that match a partial pattern with underscores as wildcards.
+    
+    Args:
+        partial_word (str): The partial word pattern (e.g., "H_LL_")
+        
+    Returns:
+        PatternResponse: A list of words matching the partial pattern
+        
+    Raises:
+        HTTPException: If the partial word format is invalid or no matches found
+    """
+    partial_word = partial_word.upper()
+    
+    if not validate_partial_word(partial_word):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid partial word format. Must contain letters and underscores only, with at least one letter."
+        )
+    
+    matching_words = []
+    for _pattern, words in patterns.items():
+        for word in words:
+            if matches_partial(word, partial_word):
+                matching_words.append(word)
+    
+    matching_words = sorted(list(set(matching_words)))
+    
+    if matching_words:
+        return {"message": matching_words}
+    else:
+        raise HTTPException(
+            status_code=404, 
+            detail="No words found matching the partial pattern"
+        )
 
 if __name__ == "__main__":
     host = "0.0.0.0" if "--host" in sys.argv else "localhost"
