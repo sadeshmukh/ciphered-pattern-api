@@ -54,6 +54,7 @@ app.add_middleware(
         "https://sahil.ink",
         "https://*.sahil.ink",
         "http://sahil.ink",
+        "https://ciphered.sahil.ink",
     ],
     allow_credentials=True,
     allow_methods=["*"],
